@@ -2,6 +2,7 @@ import os
 import os.path
 import collections
 import numpy as np
+from .node import Node, Constant
 
 class memodict_(collections.OrderedDict):
     def __init__(self, f, maxsize=1):
@@ -25,18 +26,24 @@ def memodict(f, maxsize=1):
     return m
 
 class store_entry:
-    def __init__(self, name, dependents, atomic_operation):
+    def __init__(self, name, dependents, atomic_operation, probe_func):
         self.name = name
         if dependents is None:
             dependents = []
         self.dependents = dependents
         self.atomic_operation = atomic_operation
+        self.node = None
+
+        # Optionally construct a computation graph of the function internals
+        if probe_func:
+            args = [Constant(str(d)) for d in dependents]
+            self.node = self.atomic_operation(*args)
     def __call__(self, *args):
         return self.atomic_operation(*args)
 
 class store_initialized_entry(store_entry):
     def __init__(self, uninitialized, the_store, physical_props, props, cache_size=None):
-        store_entry.__init__(self, uninitialized.name, uninitialized.dependents, uninitialized.atomic_operation)
+        store_entry.__init__(self, uninitialized.name, uninitialized.dependents, uninitialized.atomic_operation, probe_func=False)
 
         self.the_store = the_store
 
@@ -78,19 +85,22 @@ class store_initialized_entry(store_entry):
         return self.cache(these_params, physical_parameters)
 
 class store:
-    def __init__(self, default_cache_size=1):
+    def __init__(self, default_cache_size=1, default_probe_func=True):
         self.default_cache_size = default_cache_size
         self.props = dict()
         self.cache_sizes = dict()
         self.initialized_props = dict()
+        self.default_probe_func = default_probe_func
 
     def get_prop(self, name, physical_parameters=None):
         if physical_parameters is None:
             physical_parameters = dict()
         return self.initialized_props[name](physical_parameters)
 
-    def add_prop(self, name, dependents, atomic_operation, cache_size=None):
-        prop = store_entry(name, dependents, atomic_operation)
+    def add_prop(self, name, dependents, atomic_operation, cache_size=None, probe_func=None):
+        if probe_func is None:
+            probe_func = self.default_probe_func
+        prop = store_entry(name, dependents, atomic_operation, probe_func)
         self.props[name] = prop
         self.cache_sizes[name] = cache_size
 
@@ -140,6 +150,10 @@ class store:
                 initialized_entry.implicit_physical_props = list(prop_deps)
         for prop in props:
             add_implicit_dependencies(prop)
+
+    def __getitem__(self, args):
+        prop_name, parameters = args
+        return self.get_prop(prop_name, parameters)
 
 class store_view:
     def __init__(self, the_store, parameters):
