@@ -47,31 +47,20 @@ def toposort(end_node):
                 child_counts[parent] -= 1
 
 class store_entry:
-    def __init__(self, name, dependents, atomic_operation, probe_func):
+    def __init__(self, name, dependents, atomic_operation):
         self.name = name
         if dependents is None:
             dependents = []
         self.dependents = dependents
         self.atomic_operation = atomic_operation
-        self.node = None
-
-        # Optionally construct a computation graph of the function internals
-        if probe_func:
-            args = [Constant(str(d)) for d in dependents]
-            self.node = self.atomic_operation(*args)
     def __call__(self, *args):
         return self.atomic_operation(*args)
 
 class store_initialized_entry(store_entry):
-    def __init__(self, uninitialized, the_store, physical_props, props, cache_size=None):
-        store_entry.__init__(self, uninitialized.name, uninitialized.dependents, uninitialized.atomic_operation, probe_func=False)
+    def __init__(self, uninitialized, the_store, physical_props, props):
+        store_entry.__init__(self, uninitialized.name, uninitialized.dependents, uninitialized.atomic_operation)
 
         self.the_store = the_store
-
-        if cache_size is None:
-            cache_size = 1
-        self.cache_size = cache_size
-
         self.implicit_physical_props = []
         self.physical_props = []
         self.props = []
@@ -90,8 +79,6 @@ class store_initialized_entry(store_entry):
             else:
                 raise ValueError("Not in props or physical_props:", name)
 
-        self.cache = memodict(self.compute, self.cache_size)
-
     def compute(self, parameters, physical_parameters):
         values = [None for i in range(len(self.dependents))]
         for v,i in zip(parameters, self.physical_props_indices):
@@ -103,7 +90,23 @@ class store_initialized_entry(store_entry):
     def __call__(self, physical_parameters):
         these_params  = tuple([physical_parameters[k] for k in self.physical_props])
         these_params += tuple([physical_parameters[k] for k in self.implicit_physical_props])
+        return self.compute(these_params, physical_parameters)
+
+class store_cached_entry(store_initialized_entry):
+    def __init__(self, initialized):
+        store_initialized_entry.__init__(self, initialized, initialized.the_store, initialized.physical_props, initialized.props)
+
+        if cache_size is None:
+            cache_size = 1
+        self.cache_size = cache_size
+
+        self.cache = memodict(self.compute, self.cache_size)
+
+    def __call__(self, physical_parameters):
+        these_params  = tuple([physical_parameters[k] for k in self.physical_props])
+        these_params += tuple([physical_parameters[k] for k in self.implicit_physical_props])
         return self.cache(these_params, physical_parameters)
+
 
 class store:
     def __init__(self, default_cache_size=1, default_probe_func=True):
@@ -121,7 +124,9 @@ class store:
     def expand_graph(self, entry):
         # Get the root node
         # This represents the return value of the function
-        nodes = entry.node
+
+        args = [Constant(str(d)) for d in entry.dependents]
+        node = entry.atomic_operation(*args)
 
         entries = []
         entries.append(entry)
@@ -149,13 +154,20 @@ class store:
             # We also will need some special caching functionality
             # The function we call now depends on what kind of gradient query we make
 
+            if type(node) is Constant:
+                pass
+            elif type(node) is Node:
+                pass
+            # Create a wrapper around
+            entries.append(store_entry(name, dependents, atomic_operation, probe_func=False))
+
             ##store_entry(node.name, dependents, atomic_operation, probe_func)
 
 
     def add_prop(self, name, dependents, atomic_operation, cache_size=None, probe_func=None):
         if probe_func is None:
             probe_func = self.default_probe_func
-        prop = store_entry(name, dependents, atomic_operation, probe_func)
+        prop = store_entry(name, dependents, atomic_operation)
         if probe_func:
             self.expand_graph(prop)
         self.props[name] = prop
@@ -189,7 +201,6 @@ class store:
         physical_props = dependents - props
 
         # For each entry we need to get the physical properties that is depends on
-        # and initialize the cache
         for prop in props:
             entry = self.props[prop]
             if entry.dependents is not None:
@@ -200,6 +211,10 @@ class store:
             these_props = these_deps - these_physical_props
             initialized_entry = store_initialized_entry(entry, self, these_physical_props, these_props, cache_size=self.cache_sizes[prop])
             self.initialized_props[prop] = initialized_entry
+
+        # Now we need another loop to make these into caches
+        for prop in props:
+            initialized_entry = self.initialized_props[prop]
 
 
         # There is no harm in initializing the caches in the lines above since they are empty
