@@ -25,6 +25,27 @@ def memodict(f, maxsize=1):
     m = memodict_(f, maxsize)
     return m
 
+def toposort(end_node):
+    child_counts = {}
+    stack = [end_node]
+    while stack:
+        node = stack.pop()
+        if node in child_counts:
+            child_counts[node] += 1
+        else:
+            child_counts[node] = 1
+            stack.extend(node.children)
+
+    childless_nodes = [end_node]
+    while childless_nodes:
+        node = childless_nodes.pop()
+        yield node
+        for parent in node.children:
+            if child_counts[parent] == 1:
+                childless_nodes.append(parent)
+            else:
+                child_counts[parent] -= 1
+
 class store_entry:
     def __init__(self, name, dependents, atomic_operation, probe_func):
         self.name = name
@@ -97,10 +118,46 @@ class store:
             physical_parameters = dict()
         return self.initialized_props[name](physical_parameters)
 
+    def expand_graph(self, entry):
+        # Get the root node
+        # This represents the return value of the function
+        nodes = entry.node
+
+        entries = []
+        entries.append(entry)
+
+        root_name = entry.name
+
+        const_counter = 0
+        node_counter = 0
+        for node in toposort(entry.node):
+            if type(node) is Constant:
+                name = "#" + root_name + ":const" + str(const_counter)
+                const_counter += 1
+            elif type(node) is Node:
+                name = "#" + root_name + ":value" + str(node_counter)
+                node_counter += 1
+            node.name = name
+
+        for node in toposort(entry.node):
+            name = node.name
+            dependents = [c.name for c in node.children]
+            # Now we need to implement a special type of entry and some extra functionality
+            # The trick here is that there is not exactly a single atomic operation, but rather a series of them
+            # There will be one operator per possible gradient query, i.e the scalar only case, the single variable derivative case, the 2d gradient, the 3d gradient, etc.
+            # We probably need a class to represent a particular operator (ex. addition) which then covers these cases
+            # We also will need some special caching functionality
+            # The function we call now depends on what kind of gradient query we make
+
+            ##store_entry(node.name, dependents, atomic_operation, probe_func)
+
+
     def add_prop(self, name, dependents, atomic_operation, cache_size=None, probe_func=None):
         if probe_func is None:
             probe_func = self.default_probe_func
         prop = store_entry(name, dependents, atomic_operation, probe_func)
+        if probe_func:
+            self.expand_graph(prop)
         self.props[name] = prop
         self.cache_sizes[name] = cache_size
 
