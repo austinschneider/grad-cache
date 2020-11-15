@@ -109,18 +109,30 @@ class store:
             self.initialized_props[prop].clear()
 
     def initialize(self, keep_cache=False):
+        # First see if we need to keep the old initialized caches around
         old_initialized_props = self.initialized_props
         if not keep_cache:
             del old_initialized_props
+
+        # Set up the location for the initialized entries
         self.initialized_props = dict()
         props = self.props.keys()
+
+        # Collect all the dependents from across the entries
         dependents = set()
         for prop in props:
             deps = self.props[prop].dependents
             if deps is not None:
                 dependents.update(deps)
+
+        # Collect the names of all entries
         props = set(props)
+        # See which of the dependencies are not functions registered with the store
+        # These are our physical parameters
         physical_props = dependents - props
+
+        # For each entry we need to get the physical properties that is depends on
+        # and initialize the cache
         for prop in props:
             entry = self.props[prop]
             if entry.dependents is not None:
@@ -131,6 +143,10 @@ class store:
             these_props = these_deps - these_physical_props
             initialized_entry = store_initialized_entry(entry, self, these_physical_props, these_props, cache_size=self.cache_sizes[prop])
             self.initialized_props[prop] = initialized_entry
+
+
+        # There is no harm in initializing the caches in the lines above since they are empty
+        # We can now replace them with the old copies if asked to
         if keep_cache:
             keys = old_initialized_props.keys()
             for k in keys:
@@ -138,6 +154,7 @@ class store:
                     self.initialized_props[k].cache = old_initialized_props[k].cache
             del old_initialized_props
 
+        # Compute the implicit physical dependencies recursively
         def add_implicit_dependencies(prop):
             initialized_entry = self.initialized_props[prop]
             if len(initialized_entry.implicit_physical_props) == 0:
@@ -148,6 +165,8 @@ class store:
                     prop_deps |= set(self.initialized_props[dprop].implicit_physical_props)
                 prop_deps -= set(initialized_entry.physical_props)
                 initialized_entry.implicit_physical_props = list(prop_deps)
+
+        # Ensure the implicit dependencies exist for all entries
         for prop in props:
             add_implicit_dependencies(prop)
 
