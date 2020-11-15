@@ -32,6 +32,7 @@ class Node:
     def __init__(self, op, children):
         self.children = children
         self.op = op
+        self.name = None
     @classmethod
     def register_op(cls, *args):
         register_op(cls, *args)
