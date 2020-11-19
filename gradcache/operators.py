@@ -121,24 +121,24 @@ operators = {
         }
 
 
-p = operators['plus']
+if __name__ == "__main__":
+    p = operators['plus']
 
+    def f(a, b, c, d):
+        y = a + b
+        z = c + d
+        r = (y**2) * z
+        return r
 
-def f(a, b, c, d):
-    y = a + b
-    z = c + d
-    r = (y**2) * z
-    return r
+    def f(a, b, c, d):
+        return operators['mul'].eval(operators['pow'].eval(operators['plus'].eval(a, b), 2), operators['plus'].eval(c, d))
 
-def f(a, b, c, d):
-    return operators['mul'].eval(operators['pow'].eval(operators['plus'].eval(a, b), 2), operators['plus'].eval(c, d))
+    a = parameter_wrapper('a', 1, grads=['g'], grad_values=[1])
+    b = parameter_wrapper('b', 1, grads=['g'], grad_values=[1])
+    c = parameter_wrapper('c', 1, grads=['h'], grad_values=[1])
+    d = parameter_wrapper('d', 1, grads=['h'], grad_values=[1])
 
-a = parameter_wrapper('a', 1, grads=['g'], grad_values=[1])
-b = parameter_wrapper('b', 1, grads=['g'], grad_values=[1])
-c = parameter_wrapper('c', 1, grads=['h'], grad_values=[1])
-d = parameter_wrapper('d', 1, grads=['h'], grad_values=[1])
-
-res = f(a, b, c, d)
-print(res.value)
-print(res.grads)
-print(res.grad_values)
+    res = f(a, b, c, d)
+    print(res.value)
+    print(res.grads)
+    print(res.grad_values)
