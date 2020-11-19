@@ -13,6 +13,7 @@ def get_value(x):
         return x
     return x.value if isinstance(x, Node) else x
 
+
 def build_op(token, n, rev):
     if n == 2:
         op = str(token)
@@ -22,7 +23,11 @@ def build_op(token, n, rev):
                     sval = get_value(self)
                     oval = get_value(other)
                     res = ops[op].eval(oval, sval)
-                    return Node(op, [], value=res)
+                    for n in [self, other]:
+                        if type(n) is Node:
+                            n.evaluate = False
+                            n.value = None
+                    return Node(op, [other, self], value=res)
                 else:
                     if not isinstance(other, Node):
                         other = Constant(other)
@@ -33,7 +38,11 @@ def build_op(token, n, rev):
                     sval = get_value(self)
                     oval = get_value(other)
                     res = ops[op].eval(sval, oval)
-                    return Node(op, [], value=res)
+                    for n in [self, other]:
+                        if type(n) is Node:
+                            n.evaluate = False
+                            n.value = None
+                    return Node(op, [self, other], value=res)
                 else:
                     if not isinstance(otype, Node):
                         other = Constant(other)
@@ -44,7 +53,10 @@ def build_op(token, n, rev):
             if self.evaluate:
                 sval = get_value(self)
                 res = ops[op].eval(sval)
-                return Node(op, [], value=res)
+                if type(self) is Node:
+                    self.evaluate = False
+                    self.value = None
+                return Node(op, [self], value=res)
             else:
                 return Node(op, [self])
     return inner
@@ -67,6 +79,7 @@ class Node:
         else:
             self.evaluate = True
             self.value = value
+
     @classmethod
     def register_op(cls, *args):
         register_op(cls, *args)
@@ -81,15 +94,14 @@ class Node:
 class Constant(Node):
     """A constant node"""
     def __init__(self, value):
-        Node.__init__(self, None, [])
-        self.value = value
+        Node.__init__(self, None, [], value=value)
     def __repr__(self):
         return str(self.value)
 
 class Parameter(Node):
     """A variable parameter node"""
-    def __init(self, name):
-        Node.__init__(self, None, [])
+    def __init__(self, name, value=None):
+        Node.__init__(self, None, [], value=value)
         self.name = name
     def __repr__(self):
         return str(self.name)
@@ -149,12 +161,13 @@ if __name__ == "__main__":
     c = parameter_wrapper('c', 1, grads=['h'], grad_values=[1])
     d = parameter_wrapper('d', 1, grads=['h'], grad_values=[1])
 
-    na = Node("a", [], value=a)
-    nb = Node("b", [], value=b)
-    nc = Node("c", [], value=c)
-    nd = Node("d", [], value=d)
+    na = Parameter("a", value=a)
+    nb = Parameter("b", value=b)
+    nc = Parameter("c", value=c)
+    nd = Parameter("d", value=d)
 
     res = f(na, nb, nc, nd)
+    print(res)
     print(res.value)
     print(res.value.value)
     print(res.value.grads)
