@@ -52,6 +52,14 @@ class Constant(Node):
     def __repr__(self):
         return str(self.value)
 
+class Parameter(Node):
+    """A variable parameter node"""
+    def __init(self, name):
+        Node.__init__(self, None, [])
+        self.name = name
+    def __repr__(self):
+        return str(self.name)
+
 operators = [
         ("__add__", "plus", 2, False),
         ("__radd__", "plus", 2, True),
