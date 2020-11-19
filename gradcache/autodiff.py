@@ -47,12 +47,13 @@ def plus_01(x0, xg1):
 
 
 # Add two value gradient tuples
-def plus_grad(xg0, xg1, resdim0, resdim1):
+def plus_grad(xg0, xg1, resdim0, resdim1, nres):
     x0, grad0 = xg0
     x1, grad1 = xg1
-    resgrad = np.zeros((len(x1), len(resdim0)))
-    resgrad[:, resdim0] = grad0
-    resgrad[:, resdim1] += grad1
+    x0 = np.atleast_1d(x0)
+    resgrad = np.zeros(np.shape(x0) + (nres,))
+    resgrad[..., resdim0] = grad0
+    resgrad[..., resdim1] += grad1
     return x0 + x1, resgrad
 
 # Compute the sum
@@ -81,12 +82,13 @@ def minus_01(x0, xg1):
 
 
 # Subtract two value gradient tuples
-def minus_grad(xg0, xg1, resdim0, resdim1):
+def minus_grad(xg0, xg1, resdim0, resdim1, nres):
     x0, grad0 = xg0
     x1, grad1 = xg1
-    resgrad = np.zeros((len(x1), len(resdim0)))
-    resgrad[:, resdim0] = grad0
-    resgrad[:, resdim1] -= grad1
+    x0 = np.atleast_1d(x0)
+    resgrad = np.zeros(np.shape(x0) + (nres,))
+    resgrad[..., resdim0] = grad0
+    resgrad[..., resdim1] -= grad1
     return x0 - x1, resgrad
 
 
@@ -107,12 +109,12 @@ def mul_01(x0, xg1):
 
 
 # Multiply two value gradient tuples
-def mul_grad(xg0, xg1, resdim0, resdim1):
+def mul_grad(xg0, xg1, resdim0, resdim1, nres):
     x0, grad0 = xg0
     x1, grad1 = xg1
-    resgrad = np.zeros((len(x1), len(resdim0)))
-    resgrad[:, resdim0] = up(x1) * grad0
-    resgrad[:, resdim1] += up(x0) * grad1
+    resgrad = np.zeros(np.shape(x0) + (nres,))
+    resgrad[..., resdim0] = up(x1) * grad0
+    resgrad[..., resdim1] += up(x0) * grad1
     return x0 * x1, resgrad
 
 
@@ -137,14 +139,15 @@ def div_01(x0, xg1):
 
 
 # Divide two value gradient tuples
-def div_grad(xg0, xg1, resdim0, resdim1):
+def div_grad(xg0, xg1, resdim0, resdim1, nres):
     x0, grad0 = xg0
     x1, grad1 = xg1
     val = x0 / x1
+    x0 = np.atleast_1d(x0)
+    resgrad = np.zeros(np.shape(x0) + (nres,))
     x0, x1 = up(x0), up(x1)
-    resgrad = np.zeros((len(x0), len(resdim0)))
-    resgrad[:, resdim0] = grad0 / x1
-    resgrad[:, resdim1] -= up(val) / x1 * grad1
+    resgrad[..., resdim0] = grad0 / x1
+    resgrad[..., resdim1] -= up(val) / x1 * grad1
     return val, resgrad
 
 # Take the power of one value to another
@@ -170,14 +173,15 @@ def pow_01(x0, xg1):
 
 
 # Take the power of a value gradient tuple to another value gradient tuple
-def pow_grad(xg0, xg1, resdim0, resdim1):
+def pow_grad(xg0, xg1, resdim0, resdim1, nres):
     x0, grad0 = xg0
     x1, grad1 = xg1
     val = x0 ** x1
+    x0 = np.atleast_1d(x0)
+    resgrad = np.zeros(np.shape(x0) + (nres,))
     x0, x1 = up(x0), up(x1)
-    resgrad = np.zeros(len(x0), len(resdim0))
-    resgrad[:, resdim0] = x1 * x0 ** (x1 - 1) * grad0
-    resgrad[:, resdim1] += up(val) * np.log(x0) * grad1
+    resgrad[..., resdim0] = x1 * x0 ** (x1 - 1) * grad0
+    resgrad[..., resdim1] += up(val) * np.log(x0) * grad1
     return val, resgrad
 
 
