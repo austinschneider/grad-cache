@@ -7,6 +7,9 @@ class parameter_wrapper:
         self.name = name
 
         # A numeric value
+        #from node import Node
+        #assert(not isinstance(value, parameter_wrapper))
+        #assert(not isinstance(value, Node))
         self.value = value
 
         # names of parameters for which we should track the gradient
