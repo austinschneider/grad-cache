@@ -47,7 +47,7 @@ def plus_01(x0, xg1):
 
 
 # Add two value gradient tuples
-def plus_11(xg0, xg1, resdim0, resdim1):
+def plus_grad(xg0, xg1, resdim0, resdim1):
     x0, grad0 = xg0
     x1, grad1 = xg1
     resgrad = np.zeros((len(x1), len(resdim0)))
@@ -60,7 +60,7 @@ def sum(x, axis=(0,)):
     return x.sum(axis=axis)
 
 # Compute the sum of a value gradient tuple
-def sum_1(xg, axis=(0,)):
+def sum_grad(xg, axis=(0,)):
     x, g = xg
     return x.sum(axis=axis), g.sum(axis=axis)
 
@@ -81,7 +81,7 @@ def minus_01(x0, xg1):
 
 
 # Subtract two value gradient tuples
-def minus_11(xg0, xg1, resdim0, resdim1):
+def minus_grad(xg0, xg1, resdim0, resdim1):
     x0, grad0 = xg0
     x1, grad1 = xg1
     resgrad = np.zeros((len(x1), len(resdim0)))
@@ -179,6 +179,17 @@ def pow_grad(xg0, xg1, resdim0, resdim1):
     resgrad[:, resdim0] = x1 * x0 ** (x1 - 1) * grad0
     resgrad[:, resdim1] += up(val) * np.log(x0) * grad1
     return val, resgrad
+
+
+# Invert a value
+def inv(x0):
+    return -x0
+
+
+# Invert a value gradient tuple
+def inv_grad(xg0):
+    x0, grad0 = xg0
+    return -x0, -grad0
 
 
 # Take the natural log of a value
