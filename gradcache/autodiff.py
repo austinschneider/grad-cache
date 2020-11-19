@@ -13,7 +13,18 @@ import scipy as sp
 # Adds an extra dimension to a quantity so it may represent a gradient
 def up(x):
     x = np.atleast_1d(x)
-    return np.reshape(x, newshape=(x.shape + (1,)))
+    res = np.reshape(x, newshape=(x.shape + (1,)))
+    return res
+
+
+def resgrad_shape(x, n):
+    xshape = np.shape(x)
+    lxs = len(xshape)
+    if lxs == 0:
+        m = (1,)
+    else:
+        m = xshape
+    return m + (n,)
 
 
 # Apply a slice to a value gradient tuple
@@ -51,7 +62,7 @@ def plus_grad(xg0, xg1, resdim0, resdim1, nres):
     x0, grad0 = xg0
     x1, grad1 = xg1
     x0 = np.atleast_1d(x0)
-    resgrad = np.zeros(np.shape(x0) + (nres,))
+    resgrad = np.zeros(resgrad_shape(x0, nres))
     resgrad[..., resdim0] = grad0
     resgrad[..., resdim1] += grad1
     return x0 + x1, resgrad
@@ -86,7 +97,7 @@ def minus_grad(xg0, xg1, resdim0, resdim1, nres):
     x0, grad0 = xg0
     x1, grad1 = xg1
     x0 = np.atleast_1d(x0)
-    resgrad = np.zeros(np.shape(x0) + (nres,))
+    resgrad = np.zeros(resgrad_shape(x0, nres))
     resgrad[..., resdim0] = grad0
     resgrad[..., resdim1] -= grad1
     return x0 - x1, resgrad
@@ -112,7 +123,7 @@ def mul_01(x0, xg1):
 def mul_grad(xg0, xg1, resdim0, resdim1, nres):
     x0, grad0 = xg0
     x1, grad1 = xg1
-    resgrad = np.zeros(np.shape(x0) + (nres,))
+    resgrad = np.zeros(resgrad_shape(x0, nres))
     resgrad[..., resdim0] = up(x1) * grad0
     resgrad[..., resdim1] += up(x0) * grad1
     return x0 * x1, resgrad
@@ -144,7 +155,7 @@ def div_grad(xg0, xg1, resdim0, resdim1, nres):
     x1, grad1 = xg1
     val = x0 / x1
     x0 = np.atleast_1d(x0)
-    resgrad = np.zeros(np.shape(x0) + (nres,))
+    resgrad = np.zeros(resgrad_shape(x0, nres))
     x0, x1 = up(x0), up(x1)
     resgrad[..., resdim0] = grad0 / x1
     resgrad[..., resdim1] -= up(val) / x1 * grad1
@@ -178,7 +189,7 @@ def pow_grad(xg0, xg1, resdim0, resdim1, nres):
     x1, grad1 = xg1
     val = x0 ** x1
     x0 = np.atleast_1d(x0)
-    resgrad = np.zeros(np.shape(x0) + (nres,))
+    resgrad = np.zeros(resgrad_shape(x0, nres))
     x0, x1 = up(x0), up(x1)
     resgrad[..., resdim0] = x1 * x0 ** (x1 - 1) * grad0
     resgrad[..., resdim1] += up(val) * np.log(x0) * grad1
