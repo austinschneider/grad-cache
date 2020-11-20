@@ -9,15 +9,11 @@ def evaluate_graph(root_node, args):
     q.put(root_node)
     while not q.empty():
         node = q.get()
-        print(node)
         if isinstance(node, Constant):
-            print("constant")
             continue
         elif isinstance(node, Parameter):
-            print("parameter")
             node.value = args[node.name]
         elif node.value is None:
-            print("no value")
             children = node.children
             have_values = True
             for child in children:
@@ -46,7 +42,7 @@ if __name__ == "__main__":
 
     from parameter_wrapper import parameter_wrapper, sift_parameters
 
-    a = parameter_wrapper('a', 1, grads=['g'], grad_values=[1])
+    a = parameter_wrapper('a', 1, grads=['g', 'h'], grad_values=[1, 2])
     b = parameter_wrapper('b', 1, grads=['g'], grad_values=[1])
     c = parameter_wrapper('c', 1, grads=['h'], grad_values=[1])
     d = parameter_wrapper('d', 1, grads=['h'], grad_values=[1])
