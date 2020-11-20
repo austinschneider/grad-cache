@@ -58,7 +58,7 @@ class unary_operator:
         self.name = name
         self.op_base = op_base
         self.op_grad = op_grad
-    
+
     def eval(self, param0, ngrads=None, names=None, final_indices=None):
         if isinstance(param0, parameter_wrapper):
             p0v, p0g = param0.value, param0.grad_values

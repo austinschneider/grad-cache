@@ -23,6 +23,12 @@ class parameter_wrapper:
             else:
                 self.grad_values = grad_values
 
+    def primitive(self):
+        if self.grad_values is None:
+            return self.value
+        else:
+            return self.value, self.grad_values
+
 ### Helper functions
 
 def sift_parameters(parameters):
@@ -32,7 +38,7 @@ def sift_parameters(parameters):
     grads_counter = 0
 
     final_indices = []
-    
+
     for i,p in enumerate(parameters):
         if not isinstance(p, parameter_wrapper):
             print("sift_parameters only takes objects of type parameter_wrapper!")
