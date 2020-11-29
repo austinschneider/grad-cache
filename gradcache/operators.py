@@ -1,7 +1,7 @@
 import numpy as np
-import autodiff as ad
+import gradcache.autodiff as ad
 
-from parameter_wrapper import parameter_wrapper, sift_parameters
+from .parameter_wrapper import parameter_wrapper, sift_parameters
 
 def evaluate_grad_operator(op_grad, parameter_wrappers, ngrads=None, names=None, final_indices=None):
     if ngrads is None or names is None or final_indices is None:

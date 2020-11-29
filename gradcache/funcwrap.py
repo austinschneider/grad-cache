@@ -1,8 +1,8 @@
 import numpy as np
 
-from parameter_wrapper import parameter_wrapper, sift_parameters
+from .parameter_wrapper import parameter_wrapper, sift_parameters
 
-from node import Node
+from .node import Node
 
 
 class function_wrapper:

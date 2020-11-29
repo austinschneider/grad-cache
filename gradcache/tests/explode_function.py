@@ -6,6 +6,7 @@ import unittest
 
 Node = gradcache.Node
 Constant = gradcache.Constant
+Parameter = gradcache.Parameter
 
 class BasicTest(unittest.TestCase):
     """Basic test cases."""
@@ -26,10 +27,12 @@ class BasicTest(unittest.TestCase):
             r = y*z
             return r
 
-        g = Constant("g")
-        h = Constant("h")
+        g = Parameter("g")
+        h = Parameter("h")
 
         res = f(a(g), b(g), c(h), d(h))
+
+        print(res)
 
         def get_name(node):
             c_str = ", ".join([get_name(c) if type(c) is Node else str(c) for c in node.children])

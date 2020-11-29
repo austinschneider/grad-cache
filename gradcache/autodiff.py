@@ -105,6 +105,7 @@ def minus_grad(xg0, xg1, resdim0, resdim1, nres):
 
 # Multiply two values
 def mul(x0, x1):
+    print(type(x0), type(x1))
     return x0 * x1
 
 # Multiply a value gradient tuple and a value

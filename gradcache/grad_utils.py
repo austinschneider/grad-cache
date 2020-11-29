@@ -1,8 +1,8 @@
 import numpy as np
 import queue
 
-from node import Node, Constant, Parameter, name_nodes, toposort, get_value
-from operators import operators as ops
+from .node import Node, Constant, Parameter, name_nodes, toposort, get_value
+from .operators import operators as ops
 
 def evaluate_graph(root_node, args):
     q = queue.Queue()

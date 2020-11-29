@@ -1,9 +1,8 @@
 import numpy as np
 import types
-from functools import wraps
-#import gradcache.autodiff as ad
-import autodiff as ad
-from operators import operators as ops
+import gradcache.autodiff as ad
+#import .autodiff as ad
+from .operators import operators as ops
 
 
 class Node:
@@ -91,7 +90,7 @@ def build_op(token, n, rev):
                             n.reset()
                     return Node(op, [self, other], value=res)
                 else:
-                    if not isinstance(otype, Node):
+                    if not isinstance(other, Node):
                         other = Constant(other)
                     return Node(op, [self, other])
     elif n == 1:
