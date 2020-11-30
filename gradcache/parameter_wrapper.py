@@ -1,15 +1,16 @@
 import numpy as np
 import collections
 
+
 class parameter_wrapper:
     def __init__(self, name, value, grads=None, grad_values=None):
         # Just a string
         self.name = name
 
         # A numeric value
-        #from node import Node
-        #assert(not isinstance(value, parameter_wrapper))
-        #assert(not isinstance(value, Node))
+        # from node import Node
+        # assert(not isinstance(value, parameter_wrapper))
+        # assert(not isinstance(value, Node))
         self.value = value
 
         # names of parameters for which we should track the gradient
@@ -29,7 +30,9 @@ class parameter_wrapper:
         else:
             return self.value, self.grad_values
 
+
 ### Helper functions
+
 
 def sift_parameters(parameters):
 
@@ -39,7 +42,7 @@ def sift_parameters(parameters):
 
     final_indices = []
 
-    for i,p in enumerate(parameters):
+    for i, p in enumerate(parameters):
         if not isinstance(p, parameter_wrapper):
             print("sift_parameters only takes objects of type parameter_wrapper!")
             raise
@@ -52,7 +55,7 @@ def sift_parameters(parameters):
             continue
 
         grad_final_indices = []
-        for j,g in enumerate(grads):
+        for j, g in enumerate(grads):
             if g not in all_grads:
                 all_grads[g] = grads_counter
                 grads_counter += 1

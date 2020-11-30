@@ -4,6 +4,7 @@ import queue
 from .node import Node, Constant, Parameter, name_nodes, toposort, get_value
 from .operators import operators as ops
 
+
 def evaluate_graph(root_node, args):
     q = queue.Queue()
     q.put(root_node)
@@ -42,10 +43,10 @@ if __name__ == "__main__":
 
     from parameter_wrapper import parameter_wrapper, sift_parameters
 
-    a = parameter_wrapper('a', 1, grads=['g', 'h'], grad_values=[1, 2])
-    b = parameter_wrapper('b', 1, grads=['g'], grad_values=[1])
-    c = parameter_wrapper('c', 1, grads=['h'], grad_values=[1])
-    d = parameter_wrapper('d', 1, grads=['h'], grad_values=[1])
+    a = parameter_wrapper("a", 1, grads=["g", "h"], grad_values=[1, 2])
+    b = parameter_wrapper("b", 1, grads=["g"], grad_values=[1])
+    c = parameter_wrapper("c", 1, grads=["h"], grad_values=[1])
+    d = parameter_wrapper("d", 1, grads=["h"], grad_values=[1])
 
     na = Parameter("a", value=a)
     nb = Parameter("b", value=b)
@@ -69,8 +70,8 @@ if __name__ == "__main__":
     print(v.value)
     print()
 
-    g = parameter_wrapper('g', 1, grads=['g'], grad_values=[1])
-    h = parameter_wrapper('h', 1, grads=['h'], grad_values=[1])
+    g = parameter_wrapper("g", 1, grads=["g"], grad_values=[1])
+    h = parameter_wrapper("h", 1, grads=["h"], grad_values=[1])
 
     root_node.reset()
 
@@ -80,6 +81,3 @@ if __name__ == "__main__":
     print(res.value)
     print(res.grads)
     print(res.grad_values)
-
-
-

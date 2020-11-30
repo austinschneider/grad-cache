@@ -9,11 +9,13 @@ from .node import Node, Constant, Parameter, name_nodes, toposort
 # dict() --> parameters , dict --> grad
 # dict() --> (parameter, grad)
 
+
 class memodict_(collections.OrderedDict):
     def __init__(self, f, maxsize=1):
         collections.OrderedDict.__init__(self)
         self.f = f
         self.maxsize = maxsize
+
     def __getitem__(self, key, extra=None):
         if super().__contains__(key):
             return super().__getitem__(key)
@@ -22,13 +24,16 @@ class memodict_(collections.OrderedDict):
         ret = self.f(key, extra)
         super().__setitem__(key, ret)
         return ret
+
     def __call__(self, key, extra):
         return self.__getitem__(key, extra)
+
 
 def memodict(f, maxsize=1):
     """ Memoization decorator for a function taking a single argument """
     m = memodict_(f, maxsize)
     return m
+
 
 def obtain_constants(root_name, dependents, f):
     args = [Parameter(str(d)) for d in dependents]
@@ -39,6 +44,7 @@ def obtain_constants(root_name, dependents, f):
             constants[name] = node.value
     return constants
 
+
 class store_entry:
     def __init__(self, name, dependents, atomic_operation):
         self.name = name
@@ -46,12 +52,19 @@ class store_entry:
             dependents = []
         self.dependents = dependents
         self.atomic_operation = atomic_operation
+
     def __call__(self, *args):
         return self.atomic_operation(*args)
 
+
 class store_initialized_entry(store_entry):
     def __init__(self, uninitialized, the_store, physical_props, props):
-        store_entry.__init__(self, uninitialized.name, uninitialized.dependents, uninitialized.atomic_operation)
+        store_entry.__init__(
+            self,
+            uninitialized.name,
+            uninitialized.dependents,
+            uninitialized.atomic_operation,
+        )
 
         self.the_store = the_store
         self.implicit_physical_props = []
@@ -59,7 +72,7 @@ class store_initialized_entry(store_entry):
         self.props = []
         self.physical_props_indices = []
         self.props_indices = []
-        for i,name in enumerate(self.dependents):
+        for i, name in enumerate(self.dependents):
             if name in physical_props:
                 self.physical_props.append(name)
                 self.physical_props_indices.append(i)
@@ -71,20 +84,29 @@ class store_initialized_entry(store_entry):
 
     def compute(self, parameters, physical_parameters, *args, **kwargs):
         values = [None for i in range(len(self.dependents))]
-        for v,i in zip(parameters, self.physical_props_indices):
+        for v, i in zip(parameters, self.physical_props_indices):
             values[i] = v
-        for prop,i in zip(self.props, self.props_indices):
+        for prop, i in zip(self.props, self.props_indices):
             values[i] = self.the_store.get_prop(prop, physical_parameters)
         return self.atomic_operation(*values)
 
     def __call__(self, physical_parameters, *args, **kwargs):
-        these_params  = tuple([physical_parameters[k] for k in self.physical_props])
-        these_params += tuple([physical_parameters[k] for k in self.implicit_physical_props])
+        these_params = tuple([physical_parameters[k] for k in self.physical_props])
+        these_params += tuple(
+            [physical_parameters[k] for k in self.implicit_physical_props]
+        )
         return self.compute(these_params, physical_parameters, *args, **kwargs)
+
 
 class store_cached_entry(store_initialized_entry):
     def __init__(self, initialized, cache_size=None):
-        store_initialized_entry.__init__(self, initialized, initialized.the_store, initialized.physical_props, initialized.props)
+        store_initialized_entry.__init__(
+            self,
+            initialized,
+            initialized.the_store,
+            initialized.physical_props,
+            initialized.props,
+        )
 
         if cache_size is None:
             cache_size = 1
@@ -93,9 +115,12 @@ class store_cached_entry(store_initialized_entry):
         self.cache = memodict(self.compute, self.cache_size)
 
     def __call__(self, physical_parameters, *args, **kwargs):
-        these_params  = tuple([physical_parameters[k] for k in self.physical_props])
-        these_params += tuple([physical_parameters[k] for k in self.implicit_physical_props])
+        these_params = tuple([physical_parameters[k] for k in self.physical_props])
+        these_params += tuple(
+            [physical_parameters[k] for k in self.implicit_physical_props]
+        )
         return self.cache(these_params, physical_parameters)
+
 
 class const_cache:
     def __init__(self, root_name, dependents, atomic_operation, cache_size=None):
@@ -115,7 +140,9 @@ class const_cache:
         self.cached = True
 
     def compute(self, *args, **kwargs):
-        constants = obtain_constants(self.root_name, self.dependents, self.atomic_operation)
+        constants = obtain_constants(
+            self.root_name, self.dependents, self.atomic_operation
+        )
         return constants
 
     def __call__(self, *args, **kwargs):
@@ -144,9 +171,16 @@ class store_constants_cached_entry(store_initialized_entry):
     def __call__(self, *args, **kwargs):
         return self.cache()[self.name]
 
+
 class store_cached_grad_entry(store_initialized_entry):
     def __init__(self, initialized, cache_size=None):
-        store_initialized_entry.__init__(self, initialized, initialized.the_store, initialized.physical_props, initialized.props)
+        store_initialized_entry.__init__(
+            self,
+            initialized,
+            initialized.the_store,
+            initialized.physical_props,
+            initialized.props,
+        )
 
         if cache_size is None:
             cache_size = 1
@@ -156,18 +190,22 @@ class store_cached_grad_entry(store_initialized_entry):
 
     def compute(self, parameters, physical_parameters, *args, **kwargs):
         values = [None for i in range(len(self.dependents))]
-        for v,i in zip(parameters, self.physical_props_indices):
+        for v, i in zip(parameters, self.physical_props_indices):
             values[i] = v
-        for prop,i in zip(self.props, self.props_indices):
-            values[i] = self.the_store.get_prop(prop, physical_parameters, *args, **kwargs)
+        for prop, i in zip(self.props, self.props_indices):
+            values[i] = self.the_store.get_prop(
+                prop, physical_parameters, *args, **kwargs
+            )
         return self.atomic_operation(*values)
 
     def __call__(self, physical_parameters, *args, **kwargs):
         if "grads" in kwargs:
             grads = kwargs["grads"]
 
-        these_params  = tuple([physical_parameters[k] for k in self.physical_props])
-        these_params += tuple([physical_parameters[k] for k in self.implicit_physical_props])
+        these_params = tuple([physical_parameters[k] for k in self.physical_props])
+        these_params += tuple(
+            [physical_parameters[k] for k in self.implicit_physical_props]
+        )
         return self.cache(these_params, physical_parameters)
 
 
@@ -218,17 +256,20 @@ class store:
 
             elif type(node) is Node:
                 atomic_operation = make_atomic_op()
-                node_entry = store_entry(name, dependents, atomic_operation, probe_func=False)
+                node_entry = store_entry(
+                    name, dependents, atomic_operation, probe_func=False
+                )
                 props[node.name] = node_entry
 
             ##store_entry(node.name, dependents, atomic_operation, probe_func)
 
-
-    def add_prop(self, name, dependents, atomic_operation, cache_size=None, probe_func=None):
+    def add_prop(
+        self, name, dependents, atomic_operation, cache_size=None, probe_func=None
+    ):
         if probe_func is None:
             probe_func = self.default_probe_func
         prop = store_entry(name, dependents, atomic_operation)
-        #if probe_func:
+        # if probe_func:
         #    self.expand_graph(prop)
         self.props[name] = prop
         self.cache_sizes[name] = cache_size
@@ -269,15 +310,18 @@ class store:
                 these_deps = set()
             these_physical_props = these_deps - props
             these_props = these_deps - these_physical_props
-            initialized_entry = store_initialized_entry(entry, self, these_physical_props, these_props)
+            initialized_entry = store_initialized_entry(
+                entry, self, these_physical_props, these_props
+            )
             self.initialized_props[prop] = initialized_entry
 
         # Now we need another loop to make these into caches
         for prop in props:
             initialized_entry = self.initialized_props[prop]
-            cache_entry = store_cached_entry(initialized_entry, cache_size=self.cache_sizes[prop])
+            cache_entry = store_cached_entry(
+                initialized_entry, cache_size=self.cache_sizes[prop]
+            )
             self.initialized_cache_props[prop] = cache_entry
-
 
         # There is no harm in initializing the caches in the lines above since they are empty
         # We can now replace them with the old copies if asked to
@@ -285,7 +329,9 @@ class store:
             keys = old_initialized_cahe_props.keys()
             for k in keys:
                 if k in self.initialized_cache_props:
-                    self.initialized_cache_props[k].cache = old_initialized_cache_props[k].cache
+                    self.initialized_cache_props[k].cache = old_initialized_cache_props[
+                        k
+                    ].cache
             del old_initialized_cache_props
 
         # Compute the implicit physical dependencies recursively
@@ -296,7 +342,9 @@ class store:
                 for dprop in initialized_cache_entry.props:
                     add_implicit_dependencies(dprop)
                     prop_deps |= set(self.initialized_cache_props[dprop].physical_props)
-                    prop_deps |= set(self.initialized_cache_props[dprop].implicit_physical_props)
+                    prop_deps |= set(
+                        self.initialized_cache_props[dprop].implicit_physical_props
+                    )
                 prop_deps -= set(initialized_cache_entry.physical_props)
                 initialized_cache_entry.implicit_physical_props = list(prop_deps)
 
@@ -308,10 +356,11 @@ class store:
         prop_name, parameters = args
         return self.get_prop(prop_name, parameters)
 
+
 class store_view:
     def __init__(self, the_store, parameters):
         self.the_store = the_store
         self.parameters = parameters
+
     def __getitem__(self, prop_name):
         return self.the_store.get_prop(prop_name, self.parameters)
-

@@ -4,11 +4,22 @@ from .parameter_wrapper import parameter_wrapper, sift_parameters
 
 from .node import Node
 
+
 class memodict(collections.OrderedDict):
     """Keep a size limited cache of function results
     Also optionally tracks time and memory usage for the function calls
     """
-    def __init__(self, f, maxsize=1, enabled=True, sample_time=True, sample_mem=True, track_time=False, track_mem=False):
+
+    def __init__(
+        self,
+        f,
+        maxsize=1,
+        enabled=True,
+        sample_time=True,
+        sample_mem=True,
+        track_time=False,
+        track_mem=False,
+    ):
         collections.OrderedDict.__init__(self)
         self.f = f
         self.maxsize = maxsize
@@ -27,18 +38,27 @@ class memodict(collections.OrderedDict):
 
     def enable(self):
         self.enabled = True
+
     def disable(self):
         self.enabled = False
+
     def clear(self):
         super().clear()
         self.accesses = 0
         self.accesses_weighted = 0
+
     def set_size(self, size):
         self.maxsize = size
         while len(self) >= max(self.maxsize, 1):
             self.popitem(last=False)
+
     def get_state(self):
-        return self.accesses, self.accesses_weighted, np.sum(self.time_samples)/len(self.time_samples), np.sum(self.mem_samples)/len(self.mem_samples)
+        return (
+            self.accesses,
+            self.accesses_weighted,
+            np.sum(self.time_samples) / len(self.time_samples),
+            np.sum(self.mem_samples) / len(self.mem_samples),
+        )
 
     def set_function(self, f):
         self.f = f
@@ -49,6 +69,7 @@ class memodict(collections.OrderedDict):
 
     def add_time(self, t):
         self.time_samples.append(t)
+
     def add_mem(self, m):
         self.mem_samples.append(m)
 
@@ -60,13 +81,16 @@ class memodict(collections.OrderedDict):
         while len(self) >= max(self.maxsize, 1):
             self.popitem(last=False)
         mem_sample = (not len(self.mem_samples) and self.sample_mem) or self.track_mem
-        time_sample = (not len(self.time_samples) and self.sample_time) or self.track_time
+        time_sample = (
+            not len(self.time_samples) and self.sample_time
+        ) or self.track_time
         default = (not mem_sample) and (not time_sample)
         if default:
             ret = self.f(key, extra)
         elif time_sample and mem_sample:
             import os
             import psutil
+
             process = psutil.Process(os.getpid())
             mem0 = process.memory_info().rss
             tic = time.perf_counter()
@@ -83,6 +107,7 @@ class memodict(collections.OrderedDict):
         elif mem_sample:
             import os
             import psutil
+
             process = psutil.Process(os.getpid())
             mem0 = process.memory_info().rss
             ret = self.f(key, extra)
@@ -100,7 +125,10 @@ class memodict(collections.OrderedDict):
 
 class entry_context:
     """The context of a function within the larger computation/dependency graph"""
-    def __init__(self, name, the_store, dependents=None, physical_props=None, props=None):
+
+    def __init__(
+        self, name, the_store, dependents=None, physical_props=None, props=None
+    ):
 
         self.name = name
         self.the_store = the_store
@@ -136,12 +164,13 @@ class entry_context:
         self.dependents = dependents
         self.init_deps = True
 
-
     def add_physical_dependencies(self, props, physical_props):
         if self.init_physical_deps:
             raise RuntimeError("Physical dependencies already initialized!")
         if not self.init_deps:
-            raise RuntimeError("Dependencies must be initialized before initializing physical dependencies!")
+            raise RuntimeError(
+                "Dependencies must be initialized before initializing physical dependencies!"
+            )
         if self.dependents is not None:
             these_deps = set(self.dependents)
         else:
@@ -149,7 +178,7 @@ class entry_context:
         these_physical_props = these_deps - props
         these_props = these_deps - these_physical_props
 
-        for i,name in enumerate(self.dependents):
+        for i, name in enumerate(self.dependents):
             if name in these_physical_props:
                 self.physical_props.append(name)
                 self.physical_props_indices.append(i)
@@ -161,7 +190,9 @@ class entry_context:
 
     def add_implicit_dependencies(self, prop_map):
         if (not self.init_deps) or (not self.init_physical_deps):
-            raise RuntimeError("Dependencies and physical dependencies must be initialized before initializing implicit dependencies!")
+            raise RuntimeError(
+                "Dependencies and physical dependencies must be initialized before initializing implicit dependencies!"
+            )
 
         if len(self.implicit_physical_props) == 0:
             prop_deps = set()
@@ -174,15 +205,17 @@ class entry_context:
             self.implicit_physical_props = list(prop_deps)
 
     def extract_params(self, physical_parameters):
-        these_params  = tuple([physical_parameters[k] for k in self.physical_props])
-        these_params += tuple([physical_parameters[k] for k in self.implicit_physical_props])
+        these_params = tuple([physical_parameters[k] for k in self.physical_props])
+        these_params += tuple(
+            [physical_parameters[k] for k in self.implicit_physical_props]
+        )
         return these_params
 
     def extract_values(self, parameters, physical_parameters):
         values = [None for i in range(len(self.dependents))]
-        for v,i in zip(parameters, self.physical_props_indices):
+        for v, i in zip(parameters, self.physical_props_indices):
             values[i] = v
-        for prop,i in zip(self.props, self.props_indices):
+        for prop, i in zip(self.props, self.props_indices):
             values[i] = self.the_store.get_prop(prop, physical_parameters)
         return values
 
@@ -193,6 +226,7 @@ class entry_context:
     def __call__(self, physical_parameters, *args, **kwargs):
         these_params = self.extract_params(physical_parameters)
         return self.compute(these_params, physical_parameters, *args, **kwargs)
+
 
 class function_wrapper:
     def __init__(self, function, name, arg_names):
@@ -212,10 +246,13 @@ class function_wrapper:
 
     def enable_cache(self):
         self.cache.enable()
+
     def disable_cache(self):
         self.cache.disable()
+
     def clear_cache(self):
         self.cache.clear()
+
     def set_cache_size(self, size):
         self.cache.set_size(size)
 
@@ -230,7 +267,10 @@ class function_wrapper:
     # Evaluation with gradient tracking
     # Accepts only parameter_wrappers
     def eval_grad(self, parameter_wrappers):
-        nodes = [Node(name, [], value=pwrap) for name,pwrap in zip(self.arg_names,parameter_wrappers)]
+        nodes = [
+            Node(name, [], value=pwrap)
+            for name, pwrap in zip(self.arg_names, parameter_wrappers)
+        ]
         res_node = self.function(*nodes)
         return res_node.value
 
@@ -247,4 +287,3 @@ class function_wrapper:
             return self.eval_grad(new_args)
         else:
             return self.eval(args)
-

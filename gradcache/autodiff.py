@@ -45,6 +45,7 @@ def assign_mask(xg0, xg1, mask):
 def plus(x0, x1):
     return x0 + x1
 
+
 # Add a value gradient tuple and a value
 def plus_10(xg0, x1):
     x0, grad0 = xg0
@@ -67,18 +68,22 @@ def plus_grad(xg0, xg1, resdim0, resdim1, nres):
     resgrad[..., resdim1] += grad1
     return x0 + x1, resgrad
 
+
 # Compute the sum
 def sum(x, axis=(0,)):
     return x.sum(axis=axis)
+
 
 # Compute the sum of a value gradient tuple
 def sum_grad(xg, axis=(0,)):
     x, g = xg
     return x.sum(axis=axis), g.sum(axis=axis)
 
+
 # Subtract two values
 def minus(x0, x1):
     return x0 - x1
+
 
 # Subtract a value gradient tuple and a value
 def minus_10(xg0, x1):
@@ -107,6 +112,7 @@ def minus_grad(xg0, xg1, resdim0, resdim1, nres):
 def mul(x0, x1):
     print(type(x0), type(x1))
     return x0 * x1
+
 
 # Multiply a value gradient tuple and a value
 def mul_10(xg0, x1):
@@ -161,6 +167,7 @@ def div_grad(xg0, xg1, resdim0, resdim1, nres):
     resgrad[..., resdim0] = grad0 / x1
     resgrad[..., resdim1] -= up(val) / x1 * grad1
     return val, resgrad
+
 
 # Take the power of one value to another
 def pow(x0, x1):
@@ -258,6 +265,7 @@ def sqrt_grad(xg0):
 def lgamma(x0):
     return sp.special.loggamma(x0)
 
+
 # Take the loggamma of a value gradient tuple
 def lgamma_grad(xg0):
     x0, grad0 = xg0
@@ -279,7 +287,11 @@ def log1p(xg0):
 
 # Compute the log of the pdf of a normal distribution evaluated at a value
 def normal_log_pdf(x0, mu, sigma):
-    return -0.5 * np.log(2.0 * np.pi) - np.log(sigma) - (((x0 - mu)**2) / (2.0 * sigma**2))
+    return (
+        -0.5 * np.log(2.0 * np.pi)
+        - np.log(sigma)
+        - (((x0 - mu) ** 2) / (2.0 * sigma ** 2))
+    )
 
 
 # Compute the log of the pdf of a normal distribution evaluated at a value gradient tuple

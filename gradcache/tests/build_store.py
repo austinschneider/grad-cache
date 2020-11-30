@@ -9,27 +9,31 @@ Constant = gradcache.Constant
 Parameter = gradcache.Parameter
 store = gradcache.store
 
+
 class BasicTest(unittest.TestCase):
     """Basic test cases."""
 
     def test_this(self):
         def a(g):
             print("a")
-            return 1.0*g
+            return 1.0 * g
+
         def b(g):
             print("b")
-            return 1.0*g
+            return 1.0 * g
+
         def c(h):
             print("c")
-            return 1.0*h
+            return 1.0 * h
+
         def d(h):
             print("d")
-            return 1.0*h
+            return 1.0 * h
 
         def f(a, b, c, d):
-            y = a+b
-            z = c+d
-            r = y*z
+            y = a + b
+            z = c + d
+            r = y * z
             return r
 
         the_store = store(default_cache_size=1, default_probe_func=True)
@@ -47,7 +51,9 @@ class BasicTest(unittest.TestCase):
         print("f:", the_store["f", params])
 
         def get_name(node):
-            c_str = ", ".join([get_name(c) if type(c) is Node else str(c) for c in node.children])
+            c_str = ", ".join(
+                [get_name(c) if type(c) is Node else str(c) for c in node.children]
+            )
             if node.op is None:
                 return c_str
             else:
