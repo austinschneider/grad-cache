@@ -260,7 +260,7 @@ class store:
         # These are our physical parameters
         physical_props = dependents - props
 
-        # For each entry we need to get the physical properties that is depends on
+        # For each entry we need to get the physical properties that it depends on
         for prop in props:
             entry = self.props[prop]
             if entry.dependents is not None:
