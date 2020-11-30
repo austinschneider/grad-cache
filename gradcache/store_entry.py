@@ -5,6 +5,9 @@ from .parameter_wrapper import parameter_wrapper, sift_parameters
 from .node import Node
 
 class memodict(collections.OrderedDict):
+    """Keep a size limited cache of function results
+    Also optionally tracks time and memory usage for the function calls
+    """
     def __init__(self, f, maxsize=1, enabled=True, sample_time=True, sample_mem=True, track_time=False, track_mem=False):
         collections.OrderedDict.__init__(self)
         self.f = f
@@ -95,8 +98,9 @@ class memodict(collections.OrderedDict):
         return self.__getitem__(key, extra)
 
 
-class store_initialized_entry(store_entry):
-    def __init__(self, name, the_store, dependents=None, physical_props=None, props=None, ):
+class entry_context:
+    """The context of a function within the larger computation/dependency graph"""
+    def __init__(self, name, the_store, dependents=None, physical_props=None, props=None):
 
         self.name = name
         self.the_store = the_store
