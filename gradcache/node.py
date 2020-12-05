@@ -60,13 +60,23 @@ class Parameter(Node):
         return str(self.name)
 
 
-def get_value(x):
+def query_value(x):
     """Get the value contained in a Node and Node subclasses"""
     if isinstance(x, Node):
         return x.value
     else:
         return x
     return x.value if isinstance(x, Node) else x
+
+
+def query_evaluate(x):
+    """Query whether a Node or othe class should be evaluated"""
+    if isinstance(x, Constant):
+        return True
+    elif isinstance(x, Node):
+        return x.evaluate
+    else:
+        return True
 
 
 def build_op(token, n, rev):
@@ -76,13 +86,15 @@ def build_op(token, n, rev):
         if rev:
 
             def inner(self, other):
-                if self.evaluate:
-                    sval = get_value(self)
-                    oval = get_value(other)
+                if query_evaluate(self) and query_evaluate(other):
+                    sval = query_value(self)
+                    oval = query_value(other)
                     res = ops[op].eval(oval, sval)
                     for n in [self, other]:
                         if type(n) is Node:
                             n.reset()
+                    if isinstance(self, Constant) and isinstance(other, Constant):
+                        return Constant(value)
                     return Node(op, [other, self], value=res)
                 else:
                     if not isinstance(other, Node):
@@ -92,13 +104,15 @@ def build_op(token, n, rev):
         else:
 
             def inner(self, other):
-                if self.evaluate:
-                    sval = get_value(self)
-                    oval = get_value(other)
+                if query_evaluate(self) and query_evaluate(other):
+                    sval = query_value(self)
+                    oval = query_value(other)
                     res = ops[op].eval(sval, oval)
                     for n in [self, other]:
                         if type(n) is Node:
                             n.reset()
+                    if isinstance(self, Constant) and isinstance(other, Constant):
+                        return Constant(value)
                     return Node(op, [self, other], value=res)
                 else:
                     if not isinstance(other, Node):
@@ -109,11 +123,13 @@ def build_op(token, n, rev):
         op = str(token)
 
         def inner(self):
-            if self.evaluate:
-                sval = get_value(self)
+            if query_evaluate(self):
+                sval = query_value(self)
                 res = ops[op].eval(sval)
                 if type(self) is Node:
                     self.reset()
+                if isinstance(self, Constant):
+                    return Constant(value)
                 return Node(op, [self], value=res)
             else:
                 return Node(op, [self])
