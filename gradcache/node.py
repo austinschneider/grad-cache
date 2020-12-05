@@ -70,7 +70,7 @@ def get_value(x):
 
 
 def build_op(token, n, rev):
-    """Build an operator function that wraps the operands in Nodes and optionally evaluate the operation"""
+    """Build an operator function that wraps the operands in Nodes and optionally evaluates the operation"""
     if n == 2:
         op = str(token)
         if rev:

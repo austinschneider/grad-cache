@@ -227,6 +227,13 @@ class entry_context:
         these_params = self.extract_params(physical_parameters)
         return self.compute(these_params, physical_parameters, *args, **kwargs)
 
+class gradient_information:
+    def __init__(self):
+        self.root_node = None
+        self.exploded = False
+        self.constants = dict()
+        self.precomputed_information = None
+
 
 class function_wrapper:
     def __init__(self, function, name, arg_names):

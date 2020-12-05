@@ -6,14 +6,19 @@ from .operators import operators as ops
 
 
 def evaluate_graph(root_node, args):
+    """Evaluate a computation graph to obtain the result"""
     q = queue.Queue()
     q.put(root_node)
     while not q.empty():
         node = q.get()
+
+        # The value of a Constant node is predetermined so it can be skipped
         if isinstance(node, Constant):
             continue
+        # The value of a Parameter node is provided via the arguments
         elif isinstance(node, Parameter):
             node.value = args[node.name]
+        # Other Nodes can be computed with their operator but may have unmet dependencies
         elif node.value is None:
             children = node.children
             have_values = True
