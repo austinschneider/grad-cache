@@ -2,7 +2,10 @@ import os
 import os.path
 import collections
 import numpy as np
-from .node import Node, Constant, Parameter, name_nodes, toposort
+try:
+    from .node import Node, Constant, Parameter, name_nodes, toposort
+except:
+    from node import Node, Constant, Parameter, name_nodes, toposort
 
 
 # two types of arguments for accessing the store
