@@ -1,9 +1,14 @@
 import numpy as np
 import types
-import gradcache.autodiff as ad
+try:
+    import gradcache.autodiff as ad
+except:
+    import autodiff as ad
 
-# import .autodiff as ad
-from .operators import operators as ops
+try:
+    from .operators import operators as ops
+except:
+    from operators import operators as ops
 
 
 class Node:
@@ -47,6 +52,22 @@ class Constant(Node):
 
     def __repr__(self):
         return str(self.value)
+
+
+class CachedConstant(Constant):
+    def __init__(self, name, cache=None):
+        Constant.__init__(self, None)
+        self.name = name
+        self.cache = cache
+    def __getattribute__(self, name):
+        if name == "value":
+            cache = object.__getattribute__(self, "cache")
+            if cache is None:
+                raise RuntimeError("CachedConstant does not have a value to access")
+            else:
+                return cache[name]
+        else:
+            return Constant.__getattribute__(self, name)
 
 
 class Parameter(Node):
