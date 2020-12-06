@@ -1,8 +1,15 @@
 import numpy as np
+import collections
 
-from .parameter_wrapper import parameter_wrapper, sift_parameters
+try:
+    from .parameter_wrapper import parameter_wrapper, sift_parameters
+except:
+    from parameter_wrapper import parameter_wrapper, sift_parameters
 
-from .node import Node
+try:
+    from .node import Node
+except:
+    from node import Node
 
 
 class memodict(collections.OrderedDict):
@@ -227,13 +234,23 @@ class entry_context:
         these_params = self.extract_params(physical_parameters)
         return self.compute(these_params, physical_parameters, *args, **kwargs)
 
+def obtain_constants(root_name, dependents, f):
+    args = [Parameter(str(d)) for d in dependents]
+    root_node = entry.atomic_operation(*args)
+    constants = dict()
+    for node in toposort(root_node):
+        if type(node) is Constant:
+            constants[name] = node.value
+    return constants
+
 class gradient_information:
     def __init__(self):
-        self.root_node = None
+        self.explored = False
+        self.const_cached = False
         self.exploded = False
+        self.root_node = None
         self.constants = dict()
         self.precomputed_information = None
-
 
 class function_wrapper:
     def __init__(self, function, name, arg_names):
@@ -266,20 +283,24 @@ class function_wrapper:
     def set_context(self, context):
         self.context = context
 
-    # basic numerical evaluation
-    def eval(self, parameters):
-        args = [parameters[k] for k in self.arg_names]
-        return self.function(*args)
+    # Basic numerical evaluation
+    # Requires parameters to be ordered
+    def eval_normal(self, parameters):
+        return self.function(*parameters)
 
     # Evaluation with gradient tracking
     # Accepts only parameter_wrappers
-    def eval_grad(self, parameter_wrappers):
+    # Requires parameter wrappers to be ordered
+    def eval_normal_grad(self, parameter_wrappers):
         nodes = [
             Node(name, [], value=pwrap)
             for name, pwrap in zip(self.arg_names, parameter_wrappers)
         ]
         res_node = self.function(*nodes)
         return res_node.value
+
+    def eval_explored_w_constants_stored(self, ):
+        pass
 
     def __call__(self, *args):
         new_args = []
@@ -291,6 +312,35 @@ class function_wrapper:
                 arg = parameter_wrapper(name, arg)
             new_args.append(arg)
         if have_grad:
-            return self.eval_grad(new_args)
+            return self.eval_normal_grad(new_args)
         else:
-            return self.eval(args)
+            return self.eval_normal(args)
+
+if __name__ == "__main__":
+
+    def f(a, b, c, d):
+        y = a + b
+        z = c + d
+        r = (y**2) * z
+        return r
+
+    f = function_wrapper(f, "f", ["a", "b", "c", "d"])
+
+
+    a = parameter_wrapper('a', 1, grads=['g'], grad_values=[1])
+    b = parameter_wrapper('b', 1, grads=['g'], grad_values=[1])
+    c = parameter_wrapper('c', 1, grads=['h'], grad_values=[1])
+    d = parameter_wrapper('d', 1, grads=['h'], grad_values=[1])
+
+    res = f(a, b, c, d)
+    print(res)
+    print(res.value)
+    print(res.grads)
+    print(res.grad_values)
+    res = f(a, 1.0, c, d)
+    print(res)
+    print(res.value)
+    print(res.grads)
+    print(res.grad_values)
+    res = f(1.0, 1.0, 1.0, 1.0)
+    print(res)
