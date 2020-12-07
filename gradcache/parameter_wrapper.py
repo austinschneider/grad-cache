@@ -1,28 +1,26 @@
 import numpy as np
 import collections
+from operator import itemgetter
 
 
-class parameter_wrapper:
-    def __init__(self, name, value, grads=None, grad_values=None):
-        # Just a string
-        self.name = name
-
-        # A numeric value
-        # from node import Node
-        # assert(not isinstance(value, parameter_wrapper))
-        # assert(not isinstance(value, Node))
-        self.value = value
-
-        # names of parameters for which we should track the gradient
-        self.grads = grads
-
-        self.grad_values = None
-
-        if self.grads is not None:
+class parameter_wrapper(tuple):
+    __slots__ = []
+    def __new__(cls, name, value, grads=None, grad_values=None):
+        if grads is not None:
+            grads = tuple(grads)
             if grad_values is None:
-                self.grad_values = [None for _ in range(len(self.grads))]
+                grad_values = tuple((None for _ in range(len(grads))))
             else:
-                self.grad_values = grad_values
+                grad_values = tuple(grad_values)
+        else:
+            grads = None
+            grad_values = None
+        return tuple.__new__(cls, (name, value, grads, grad_values))
+
+    name = property(itemgetter(0))
+    value = property(itemgetter(1))
+    grads = property(itemgetter(2))
+    grad_values = property(itemgetter(3))
 
     def primitive(self):
         if self.grad_values is None:
