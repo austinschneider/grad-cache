@@ -362,47 +362,60 @@ class store_view:
         return self.the_store.get_prop(prop_name, self.parameters)
 
 if __name__ == "__main__":
-        def a(g):
-            print("a")
-            return 1.0 * g
+    try:
+        from .parameter_wrapper import parameter_wrapper, sift_parameters
+    except:
+        from parameter_wrapper import parameter_wrapper, sift_parameters
 
-        def b(g):
-            print("b")
-            return 1.0 * g
+    def a(g):
+        print("a")
+        return 1.0 * g
 
-        def c(h):
-            print("c")
-            return 1.0 * h
+    def b(g):
+        print("b")
+        return 1.0 * g
 
-        def d(h):
-            print("d")
-            return 1.0 * h
+    def c(h):
+        print("c")
+        return 1.0 * h
 
-        def f(a, b, c, d):
-            y = a + b
-            z = c + d
-            r = y * z
-            return r
+    def d(h):
+        print("d")
+        return 1.0 * h
 
-        the_store = store(default_cache_size=1, default_probe_func=True)
+    def f(a, b, c, d):
+        print("f")
+        y = a + b
+        z = c + d
+        r = y * z
+        return r
 
-        the_store.add_prop("f", ["a", "b", "c", "d"], f)
-        the_store.add_prop("a", ["g"], a)
-        the_store.add_prop("b", ["g"], b)
-        the_store.add_prop("c", ["h"], c)
-        the_store.add_prop("d", ["h"], d)
-        the_store.initialize()
+    the_store = store(default_cache_size=1, default_probe_func=True)
 
-        params = {"g": 1.0, "h": 2.0}
+    the_store.add_prop("f", ["a", "b", "c", "d"], f)
+    the_store.add_prop("a", ["g"], a)
+    the_store.add_prop("b", ["g"], b)
+    the_store.add_prop("c", ["h"], c)
+    the_store.add_prop("d", ["h"], d)
+    the_store.initialize()
 
-        print("f:", the_store["f", params])
-        print("f:", the_store["f", params])
+    params = {"g": 1.0, "h": 2.0}
 
-        def get_name(node):
-            c_str = ", ".join(
-                [get_name(c) if type(c) is Node else str(c) for c in node.children]
-            )
-            if node.op is None:
-                return c_str
-            else:
-                return str(node.op) + "(" + c_str + ")"
+    print("f:", the_store["f", params])
+    print("f:", the_store["f", params])
+
+    params = {
+            "g": parameter_wrapper("g", 1.0, grads=["g"], grad_values=[1]),
+            "h": parameter_wrapper("h", 2.0, grads=["h"], grad_values=[1]),
+            }
+
+    res = the_store["f", params]
+    print(res)
+    print(res.value)
+    print(res.grads)
+    print(res.grad_values)
+    res = the_store["f", params]
+    print(res)
+    print(res.value)
+    print(res.grads)
+    print(res.grad_values)
