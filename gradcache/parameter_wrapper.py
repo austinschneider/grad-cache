@@ -2,7 +2,6 @@ import numpy as np
 import collections
 from operator import itemgetter
 
-
 class parameter_wrapper(tuple):
     __slots__ = []
     def __new__(cls, name, value, grads=None, grad_values=None):
@@ -28,9 +27,7 @@ class parameter_wrapper(tuple):
         else:
             return self.value, self.grad_values
 
-
-### Helper functions
-
+# Helper functions
 
 def sift_parameters(parameters):
 
