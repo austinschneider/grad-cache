@@ -4,8 +4,10 @@ import collections
 import numpy as np
 try:
     from .node import Node, Constant, Parameter, name_nodes, toposort
+    from .store_entry import function_wrapper, gradient_information, entry_context, function_cache
 except:
     from node import Node, Constant, Parameter, name_nodes, toposort
+    from store_entry import function_wrapper, gradient_information, entry_context, function_cache
 
 
 # two types of arguments for accessing the store
@@ -224,7 +226,7 @@ class store:
     def get_prop(self, name, physical_parameters=None, *args, **kwargs):
         if physical_parameters is None:
             physical_parameters = dict()
-        return self.initialized_cache_props[name](physical_parameters, *args, **kwargs)
+        return self.props[name](physical_parameters, *args, **kwargs)
 
     def expand_graph(self, entry):
         # Get the root node
@@ -271,30 +273,22 @@ class store:
     ):
         if probe_func is None:
             probe_func = self.default_probe_func
-        prop = store_entry(name, dependents, atomic_operation)
+        prop = function_wrapper(name, dependents, atomic_operation)
         # if probe_func:
         #    self.expand_graph(prop)
         self.props[name] = prop
         self.cache_sizes[name] = cache_size
 
-    def reset_cache(self, props):
-        for prop in props:
-            self.initialized_props[prop].clear()
-
-    def initialize(self, keep_cache=False):
-        # First see if we need to keep the old initialized caches around
-        old_initialized_cache_props = self.initialized_cache_props
-        if not keep_cache:
-            del old_initialized_cache_props
-
-        # Set up the location for the initialized entries
-        self.initialized_props = dict()
-        props = self.props.keys()
+    def initialize_function_contexts(self):
+        prop_dict = self.props
+        props = prop_dict.keys()
 
         # Collect all the dependents from across the entries
         dependents = set()
         for prop in props:
-            deps = self.props[prop].dependents
+            func_wrap = prop_dict[prop]
+            deps = func_wrap.arg_names
+            func_wrap.context.set_store(self)
             if deps is not None:
                 dependents.update(deps)
 
@@ -304,56 +298,55 @@ class store:
         # These are our physical parameters
         physical_props = dependents - props
 
-        # For each entry we need to get the physical properties that it depends on
+        # For each entry we need to set the physical properties that it depends on
         for prop in props:
-            entry = self.props[prop]
-            if entry.dependents is not None:
-                these_deps = set(entry.dependents)
-            else:
-                these_deps = set()
-            these_physical_props = these_deps - props
-            these_props = these_deps - these_physical_props
-            initialized_entry = store_initialized_entry(
-                entry, self, these_physical_props, these_props
-            )
-            self.initialized_props[prop] = initialized_entry
+            prop_dict[prop].context.add_physical_dependencies(physical_props=physical_props)
 
-        # Now we need another loop to make these into caches
+    def add_implicit_physcial_dependencies(self):
+        props = self.props.keys()
         for prop in props:
-            initialized_entry = self.initialized_props[prop]
-            cache_entry = store_cached_entry(
-                initialized_entry, cache_size=self.cache_sizes[prop]
-            )
-            self.initialized_cache_props[prop] = cache_entry
+            self.props[prop].context.add_implicit_dependencies(self.props)
 
-        # There is no harm in initializing the caches in the lines above since they are empty
-        # We can now replace them with the old copies if asked to
+    def extract_caches(self):
+        prop_dict = self.props
+        props = prop_dict.keys()
+
+        caches = dict()
+        for prop in props:
+            caches[prop] = prop_dict[prop].cache
+        return caches
+
+    def set_caches(self, caches):
+        prop_dict = self.props
+        props = prop_dict.keys()
+
+        for prop in props:
+            prop_dict[prop].set_cache(caches[prop])
+
+    def reset_caches(self, props):
+        prop_dict = self.props
+        props = prop_dict.keys()
+
+        for prop in props:
+            prop_dict[prop].clear()
+
+    def initialize_caches(self):
+        prop_dict = self.props
+        props = prop_dict.keys()
+
+        for prop in props:
+            prop_dict[prop].initialize_cache()
+
+    def initialize(self, keep_cache=False):
         if keep_cache:
-            keys = old_initialized_cahe_props.keys()
-            for k in keys:
-                if k in self.initialized_cache_props:
-                    self.initialized_cache_props[k].cache = old_initialized_cache_props[
-                        k
-                    ].cache
-            del old_initialized_cache_props
+            old_caches = self.extract_caches()
 
-        # Compute the implicit physical dependencies recursively
-        def add_implicit_dependencies(prop):
-            initialized_cache_entry = self.initialized_cache_props[prop]
-            if len(initialized_cache_entry.implicit_physical_props) == 0:
-                prop_deps = set()
-                for dprop in initialized_cache_entry.props:
-                    add_implicit_dependencies(dprop)
-                    prop_deps |= set(self.initialized_cache_props[dprop].physical_props)
-                    prop_deps |= set(
-                        self.initialized_cache_props[dprop].implicit_physical_props
-                    )
-                prop_deps -= set(initialized_cache_entry.physical_props)
-                initialized_cache_entry.implicit_physical_props = list(prop_deps)
+        self.initialize_function_contexts()
+        self.add_implicit_physcial_dependencies()
+        self.initialize_caches()
 
-        # Ensure the implicit dependencies exist for all entries
-        for prop in props:
-            add_implicit_dependencies(prop)
+        if keep_cache:
+            self.set_caches(old_caches)
 
     def __getitem__(self, args):
         prop_name, parameters = args
@@ -367,3 +360,49 @@ class store_view:
 
     def __getitem__(self, prop_name):
         return self.the_store.get_prop(prop_name, self.parameters)
+
+if __name__ == "__main__":
+        def a(g):
+            print("a")
+            return 1.0 * g
+
+        def b(g):
+            print("b")
+            return 1.0 * g
+
+        def c(h):
+            print("c")
+            return 1.0 * h
+
+        def d(h):
+            print("d")
+            return 1.0 * h
+
+        def f(a, b, c, d):
+            y = a + b
+            z = c + d
+            r = y * z
+            return r
+
+        the_store = store(default_cache_size=1, default_probe_func=True)
+
+        the_store.add_prop("f", ["a", "b", "c", "d"], f)
+        the_store.add_prop("a", ["g"], a)
+        the_store.add_prop("b", ["g"], b)
+        the_store.add_prop("c", ["h"], c)
+        the_store.add_prop("d", ["h"], d)
+        the_store.initialize()
+
+        params = {"g": 1.0, "h": 2.0}
+
+        print("f:", the_store["f", params])
+        print("f:", the_store["f", params])
+
+        def get_name(node):
+            c_str = ", ".join(
+                [get_name(c) if type(c) is Node else str(c) for c in node.children]
+            )
+            if node.op is None:
+                return c_str
+            else:
+                return str(node.op) + "(" + c_str + ")"

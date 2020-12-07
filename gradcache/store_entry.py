@@ -1,5 +1,6 @@
 import numpy as np
 import collections
+import time
 
 try:
     from .parameter_wrapper import parameter_wrapper, sift_parameters
@@ -12,7 +13,7 @@ except:
     from node import Node
 
 
-class memodict(collections.OrderedDict):
+class function_cache(collections.OrderedDict):
     """Keep a size limited cache of function results
     Also optionally tracks time and memory usage for the function calls
     """
@@ -134,7 +135,7 @@ class entry_context:
     """The context of a function within the larger computation/dependency graph"""
 
     def __init__(
-        self, name, the_store, dependents=None, physical_props=None, props=None
+        self, name, the_store=None, dependents=None, physical_props=None, props=None
     ):
 
         self.name = name
@@ -162,6 +163,13 @@ class entry_context:
                 raise ValueError("Need both props and physical_props or neither")
 
         self.implicit_physical_props = []
+        self.callback = None
+
+    def set_store(self, the_store):
+        self.the_store = the_store
+
+    def set_callback(self, callback):
+        self.callback = callback
 
     def add_dependencies(self, dependents):
         if self.init_deps:
@@ -171,18 +179,28 @@ class entry_context:
         self.dependents = dependents
         self.init_deps = True
 
-    def add_physical_dependencies(self, props, physical_props):
+    def add_physical_dependencies(self, all_props=None, physical_props=None):
+        """Compute and store the direct physical dependencies based on either
+        the set of all properties or the known physical properties"""
         if self.init_physical_deps:
             raise RuntimeError("Physical dependencies already initialized!")
         if not self.init_deps:
             raise RuntimeError(
                 "Dependencies must be initialized before initializing physical dependencies!"
             )
+
         if self.dependents is not None:
             these_deps = set(self.dependents)
         else:
             these_deps = set()
-        these_physical_props = these_deps - props
+
+        if physical_props is not None:
+            these_physical_props = set.intersection(these_deps, physical_props)
+        else:
+            if all_props is not None:
+                these_physical_props = these_deps - set(all_props)
+            else:
+                raise RuntimeError("Need either all_props or physical_props to compute the correct physical dependencies!")
         these_props = these_deps - these_physical_props
 
         for i, name in enumerate(self.dependents):
@@ -194,6 +212,8 @@ class entry_context:
                 self.props_indices.append(i)
             else:
                 raise ValueError("Not in props or physical_props:", name)
+        self.init_physical_deps = True
+
 
     def add_implicit_dependencies(self, prop_map):
         if (not self.init_deps) or (not self.init_physical_deps):
@@ -203,11 +223,11 @@ class entry_context:
 
         if len(self.implicit_physical_props) == 0:
             prop_deps = set()
-            for dprop in initialized_cache_entry.props:
-                dprop_ = prop_map[dprop]
-                dprop_.add_implicit_dependencies(prop_map)
-                prop_deps |= set(dprop_.physical_props)
-                prop_deps |= set(dprop_.implicit_physical_props)
+            for dependent_prop in self.props:
+                dependent_context = prop_map[dependent_prop].context
+                dependent_context.add_implicit_dependencies(prop_map)
+                prop_deps |= set(dependent_context.physical_props)
+                prop_deps |= set(dependent_context.implicit_physical_props)
             prop_deps -= set(self.physical_props)
             self.implicit_physical_props = list(prop_deps)
 
@@ -224,11 +244,11 @@ class entry_context:
             values[i] = v
         for prop, i in zip(self.props, self.props_indices):
             values[i] = self.the_store.get_prop(prop, physical_parameters)
-        return values
+        return tuple(values)
 
     def compute(self, parameters, physical_parameters, *args, **kwargs):
-        values = self.extract_values(parameters, physical_parameters)
-        return self.atomic_operation(*values)
+        values_getter = lambda : self.extract_values(parameters, physical_parameters)
+        return self.callback(parameters, values_getter)
 
     def __call__(self, physical_parameters, *args, **kwargs):
         these_params = self.extract_params(physical_parameters)
@@ -244,20 +264,75 @@ def obtain_constants(root_name, dependents, f):
     return constants
 
 class gradient_information:
-    def __init__(self):
+    def __init__(self, fbase, callback=None):
+        self.fbase = fbase
         self.explored = False
         self.const_cached = False
         self.exploded = False
         self.root_node = None
         self.constants = dict()
         self.precomputed_information = None
+        self.callback = callback
+
+    def set_callback(self, callback):
+        self.callback = callback
+
+    # Basic numerical evaluation
+    # Requires parameters to be ordered
+    def eval_normal(self, parameters):
+        return self.callback(*parameters)
+
+    # Evaluation with gradient tracking
+    # Accepts only parameter_wrappers
+    # Requires parameter wrappers to be ordered
+    def eval_normal_grad(self, parameter_wrappers):
+        arg_names = self.fbase.arg_names
+        nodes = [
+            Node(name, [], value=pwrap)
+            for name, pwrap in zip(arg_names, parameter_wrappers)
+        ]
+        res_node = self.callback(*nodes)
+        return res_node.value
+
+    def __call__(self, *args):
+        new_args = []
+        have_grad = False
+        arg_names = self.fbase.arg_names
+        for name, arg in zip(arg_names, args):
+            if isinstance(arg, parameter_wrapper):
+                have_grad = True
+            else:
+                arg = parameter_wrapper(name, arg)
+            new_args.append(arg)
+        if have_grad:
+            return self.eval_normal_grad(new_args)
+        else:
+            return self.eval_normal(args)
+
+class unpacker:
+    def __init__(self, callback):
+        self.callback = callback
+    def __call__(self, key, value_getter):
+        return self.callback(*value_getter())
+
+
+class function_base:
+    def __init__(self, name, arg_names, function):
+        self.name = name
+        self.arg_names = arg_names
+        self.function = function
+    def __call__(self, *args, **kwargs):
+        return self.function(*args, **kwargs)
+
 
 class function_wrapper:
-    def __init__(self, function, name, arg_names):
-        self.function = function
+    def __init__(self, name, arg_names, function):
+        self.fbase = function_base(name, arg_names, function)
         self.arg_names = arg_names
-        self.context = None
-        self.cache = memodict(f, 1)
+        self.grad = gradient_information(self.fbase, callback=function)
+        self.cache = function_cache(unpacker(self.grad), 1)
+        self.context = entry_context(name, dependents=arg_names)
+        self.context.set_callback(self.cache)
 
     def get_cache_state(self):
         return self.cache.get_state()
@@ -283,38 +358,20 @@ class function_wrapper:
     def set_context(self, context):
         self.context = context
 
-    # Basic numerical evaluation
-    # Requires parameters to be ordered
-    def eval_normal(self, parameters):
-        return self.function(*parameters)
+    def set_cache(self, cache):
+        self.cache = cache
 
-    # Evaluation with gradient tracking
-    # Accepts only parameter_wrappers
-    # Requires parameter wrappers to be ordered
-    def eval_normal_grad(self, parameter_wrappers):
-        nodes = [
-            Node(name, [], value=pwrap)
-            for name, pwrap in zip(self.arg_names, parameter_wrappers)
-        ]
-        res_node = self.function(*nodes)
-        return res_node.value
+    def initialize_cache(self):
+        self.cache
 
-    def eval_explored_w_constants_stored(self, ):
-        pass
+    def determine_context_callback(self,):
+        cache_enabled = self.cache.enabled
+        grad_enabled = True
+        return "cache"
 
-    def __call__(self, *args):
-        new_args = []
-        have_grad = False
-        for name, arg in zip(self.arg_names, args):
-            if isinstance(arg, parameter_wrapper):
-                have_grad = True
-            else:
-                arg = parameter_wrapper(name, arg)
-            new_args.append(arg)
-        if have_grad:
-            return self.eval_normal_grad(new_args)
-        else:
-            return self.eval_normal(args)
+    def __call__(self, *args, **kwargs):
+        return self.context(*args, **kwargs)
+
 
 if __name__ == "__main__":
 
