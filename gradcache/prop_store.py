@@ -4,10 +4,10 @@ import collections
 import numpy as np
 try:
     from .node import Node, Constant, Parameter, name_nodes, toposort
-    from .store_entry import function_wrapper, gradient_information, entry_context, function_cache
+    from .wrapper import function_wrapper
 except:
     from node import Node, Constant, Parameter, name_nodes, toposort
-    from store_entry import function_wrapper, gradient_information, entry_context, function_cache
+    from wrapper import function_wrapper
 
 class store:
     def __init__(self, default_cache_size=1, default_probe_func=True):
